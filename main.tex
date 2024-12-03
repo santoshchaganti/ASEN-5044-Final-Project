@@ -1,0 +1,72 @@
+\documentclass[12pt]{article}
+
+% Heavenly packages
+\usepackage[margin=1.8cm, headheight=20pt, headsep=10pt, footskip=12pt]{geometry} % Adjust header and footer spacing
+\usepackage{graphicx}
+\usepackage{amsmath,amsthm,amssymb,latexsym,amsfonts}
+\usepackage{dashrule}
+\usepackage{indentfirst}
+\usepackage{matlab-prettifier}
+\usepackage{subcaption}
+\usepackage{bm}
+\usepackage{placeins}
+\usepackage{pdfpages}
+\usepackage{fancyhdr} % For headers and footers
+\usepackage{lastpage} % To reference total number of pages
+\usepackage{titlesec}
+
+% Header and Footer customization
+\pagestyle{fancy}
+\fancyhf{} % Clear default header/footer
+
+% Header
+\fancyhead[L]{ASEN 5044} % Left header
+\fancyhead[R]{FALL 2024} % Right header
+
+% Footer
+\fancyfoot[C]{\thepage\ of \pageref{LastPage}} % Page "x of y"
+
+% Title customization
+\usepackage{titling}
+
+% Define custom title format
+\title{
+    \textbf{\huge ASEN 5044 \\ \Large Final Project} \\[0.5cm]
+    \large Cooperative Air-Ground Robot Localization \\[0.2cm]
+    \today
+}
+\author{
+    Rama D S K Chaganti, Sarath Chandra Vajrala,
+    Suresh Kumar Thanushraam \\[0.3cm]
+    \textit{University of Colorado - Boulder}
+}
+\date{}
+
+% Define a custom style for MATLAB code in listings
+\lstdefinestyle{Matlab-editor}{
+    language=Matlab,
+    basicstyle=\ttfamily\small,
+    breaklines=true,
+    numbers=left,
+    numberstyle=\tiny,
+    keywordstyle=\color{blue},
+    commentstyle=\color{green!50!black},
+    stringstyle=\color{orange}
+}
+
+\begin{document}
+
+% Title Page
+\maketitle
+\thispagestyle{empty} % Remove header and footer from title page
+
+% Reset Header and Footer Style for the Rest of the Document
+\pagestyle{fancy}
+
+% Start numbering from the next page
+\clearpage
+\pagenumbering{arabic} % Start numbering pages from 1
+
+\input{part1}
+
+\end{document}

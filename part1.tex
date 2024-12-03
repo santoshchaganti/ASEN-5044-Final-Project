@@ -1,0 +1,325 @@
+\newpage
+\section*{Part 1}
+\subsection*{Exercise 1}
+
+\subsubsection*{Assumptions and System Dynamics}
+The system consists of a UGV and UAV modeled as nonlinear kinematic systems.
+
+\noindent\textit{UGV Dynamics:}
+\[
+\dot{\xi}_g = v_g \cos\theta_g, \quad \dot{\eta}_g = v_g \sin\theta_g, \quad \dot{\theta}_g = \frac{v_g}{L} \tan\phi_g
+\]
+
+\noindent\textit{UAV Dynamics:}
+\[
+\dot{\xi}_a = v_a \cos\theta_a, \quad \dot{\eta}_a = v_a \sin\theta_a, \quad \dot{\theta}_a = \omega_a
+\]
+
+\noindent The state vector is:
+\[
+x = [\xi_g, \eta_g, \theta_g, \xi_a, \eta_a, \theta_a]^T, \quad
+u = [v_g, \phi_g, v_a, \omega_a]^T
+\]
+
+\subsubsection*{State Transition Matrix (\( A \))}
+The matrix \( A = \frac{\partial f(x, u)}{\partial x} \) represents the partial derivatives of the dynamics with respect to the state variables.
+
+\noindent\textbf{UGV Contributions:}
+\[
+\hat{A}_{\text{UGV}} = 
+\begin{bmatrix}
+0 & 0 & -v_g \sin\theta_g \\
+0 & 0 & v_g \cos\theta_g \\
+0 & 0 & 0
+\end{bmatrix}
+\]
+
+\noindent\textbf{UAV Contributions:}
+\[
+\hat{A}_{\text{UAV}} = 
+\begin{bmatrix}
+0 & 0 & -v_a \sin\theta_a \\
+0 & 0 & v_a \cos\theta_a \\
+0 & 0 & 0
+\end{bmatrix}
+\]
+
+\noindent\textbf{Combined System:}
+\[
+A_{\text{comb}} =
+\begin{bmatrix}
+\hat{A}_{\text{UGV}} & 0 \\
+0 & \hat{A}_{\text{UAV}}
+\end{bmatrix}
+=
+\begin{bmatrix}
+0 & 0 & -v_g \sin\theta_g & 0 & 0 & 0 \\
+0 & 0 & v_g \cos\theta_g & 0 & 0 & 0 \\
+0 & 0 & 0 & 0 & 0 & 0 \\
+0 & 0 & 0 & 0 & 0 & -v_a \sin\theta_a \\
+0 & 0 & 0 & 0 & 0 & v_a \cos\theta_a \\
+0 & 0 & 0 & 0 & 0 & 0
+\end{bmatrix}
+\]
+
+\subsubsection*{Control Input Matrix (\( B \))}
+The matrix \( B = \frac{\partial f(x, u)}{\partial u} \) represents the partial derivatives of the dynamics with respect to the control inputs.
+
+\noindent\textbf{UGV Contributions:}
+\[
+\hat{B}_{\text{UGV}} =
+\begin{bmatrix}
+\cos\theta_g & 0 \\
+\sin\theta_g & 0 \\
+\frac{\tan\phi_g}{L} & \frac{v_g}{L \cos^2\phi_g}
+\end{bmatrix}
+\]
+
+\noindent\textbf{UAV Contributions:}
+\[
+\hat{B}_{\text{UAV}} =
+\begin{bmatrix}
+\cos\theta_a & 0 \\
+\sin\theta_a & 0 \\
+0 & 1
+\end{bmatrix}
+\]
+
+\noindent\textbf{Combined System:}
+\[
+B_{\text{comb}} =
+\begin{bmatrix}
+\hat{B}_{\text{UGV}} & 0 \\
+0 & \hat{B}_{\text{UAV}}
+\end{bmatrix}
+=
+\begin{bmatrix}
+\cos\theta_g & 0 & 0 & 0 \\
+\sin\theta_g & 0 & 0 & 0 \\
+\frac{\tan\phi_g}{L} & \frac{v_g}{L \cos^2\phi_g} & 0 & 0 \\
+0 & 0 & \cos\theta_a & 0 \\
+0 & 0 & \sin\theta_a & 0 \\
+0 & 0 & 0 & 1
+\end{bmatrix}
+\]
+
+\subsubsection*{Measurement Jacobians (\( H \))}
+
+For relative range (\( r \)) and azimuth (\( \theta_r \)), the measurement Jacobian \( H \) combines the derivatives of measurement equations with respect to the states:
+\[
+H =
+\begin{bmatrix}
+\frac{\partial \theta_r}{\partial x} \\
+\frac{\partial r}{\partial x}
+\end{bmatrix}
+\]
+Key terms derived for \( \frac{\partial \theta_r}{\partial x} \) and \( \frac{\partial r}{\partial x} \) were:
+\[
+\frac{\partial \theta_r}{\partial \xi_g} = \frac{\eta_a - \eta_g}{r^2}, \quad
+\frac{\partial \theta_r}{\partial \eta_g} = \frac{\xi_g - \xi_a}{r^2}, \quad
+\frac{\partial r}{\partial \xi_g} = \frac{\xi_g - \xi_a}{r}, \quad
+\frac{\partial r}{\partial \eta_g} = \frac{\eta_g - \eta_a}{r}
+\]
+
+\subsubsection*{Summary of Jacobians}
+The Jacobian matrices computed for the dynamics and measurement models are:
+\begin{itemize}
+    \item \( A \): \( 6 \times 6 \) state transition matrix.
+    \item \( B \): \( 6 \times 4 \) control input matrix.
+    \item \( H \): Measurement Jacobian derived for range and azimuth.
+\end{itemize}
+
+\subsection*{Exercise 2}
+
+
+\subsubsection*{1. System Dynamics}
+The continuous-time (CT) nonlinear dynamics of the system are:
+\begin{itemize}
+    \item \textbf{UGV Dynamics:}
+    \[
+    \dot{\xi}_g = v_g \cos\theta_g, \quad \dot{\eta}_g = v_g \sin\theta_g, \quad \dot{\theta}_g = \frac{v_g}{L} \tan\phi_g
+    \]
+    \item \textbf{UAV Dynamics:}
+    \[
+    \dot{\xi}_a = v_a \cos\theta_a, \quad \dot{\eta}_a = v_a \sin\theta_a, \quad \dot{\theta}_a = \omega_a
+    \]
+\end{itemize}
+
+\noindent The state vector is:
+\[
+x = [\xi_g, \eta_g, \theta_g, \xi_a, \eta_a, \theta_a]^T, \quad
+u = [v_g, \phi_g, v_a, \omega_a]^T
+\]
+The nominal operating point is:
+\[
+x_0 = [\xi_{g,0}, \eta_{g,0}, \theta_{g,0}, \xi_{a,0}, \eta_{a,0}, \theta_{a,0}]^T, \quad
+u_0 = [v_{g,0}, \phi_{g,0}, v_{a,0}, \omega_{a,0}]^T
+\]
+
+\subsubsection*{2. Linearization}
+The system is linearized around the nominal operating point:
+\[
+A = \frac{\partial f(x, u)}{\partial x} \bigg|_{x_0, u_0}, \quad
+B = \frac{\partial f(x, u)}{\partial u} \bigg|_{x_0, u_0}
+\]
+From Question 1, the linearized matrices are:
+\[
+A =
+\begin{bmatrix}
+0 & 0 & -v_g \sin\theta_g & 0 & 0 & 0 \\
+0 & 0 & v_g \cos\theta_g & 0 & 0 & 0 \\
+0 & 0 & 0 & 0 & 0 & 0 \\
+0 & 0 & 0 & 0 & 0 & -v_a \sin\theta_a \\
+0 & 0 & 0 & 0 & 0 & v_a \cos\theta_a \\
+0 & 0 & 0 & 0 & 0 & 0
+\end{bmatrix}, \quad
+B =
+\begin{bmatrix}
+\cos\theta_g & 0 & 0 & 0 \\
+\sin\theta_g & 0 & 0 & 0 \\
+\frac{\tan\phi_g}{L} & \frac{v_g}{L \cos^2\phi_g} & 0 & 0 \\
+0 & 0 & \cos\theta_a & 0 \\
+0 & 0 & \sin\theta_a & 0 \\
+0 & 0 & 0 & 1
+\end{bmatrix}
+\]
+
+\subsubsection*{3. Discretization}
+To discretize the system with a sampling time \( \Delta T = 0.1 \), the discrete-time state-space equations are:
+\[
+x_{k+1} = A_d x_k + B_d u_k
+\]
+where:
+\[
+A_d \approx I + A \Delta T, \quad B_d \approx B \Delta T
+\]
+
+\noindent The discretized matrices are:
+\[
+A_d \approx
+\begin{bmatrix}
+1 & 0 & -v_g \sin\theta_g \Delta T & 0 & 0 & 0 \\
+0 & 1 & v_g \cos\theta_g \Delta T & 0 & 0 & 0 \\
+0 & 0 & 1 & 0 & 0 & 0 \\
+0 & 0 & 0 & 1 & 0 & -v_a \sin\theta_a \Delta T \\
+0 & 0 & 0 & 0 & 1 & v_a \cos\theta_a \Delta T \\
+0 & 0 & 0 & 0 & 0 & 1
+\end{bmatrix}, \quad
+B_d \approx
+\begin{bmatrix}
+\cos\theta_g \Delta T & 0 & 0 & 0 \\
+\sin\theta_g \Delta T & 0 & 0 & 0 \\
+\frac{\tan\phi_g \Delta T}{L} & \frac{v_g \Delta T}{L \cos^2\phi_g} & 0 & 0 \\
+0 & 0 & \cos\theta_a \Delta T & 0 \\
+0 & 0 & \sin\theta_a \Delta T & 0 \\
+0 & 0 & 0 & \Delta T
+\end{bmatrix}
+\]
+
+\subsubsection*{4. Observability and Stability}
+\begin{itemize}
+    \item \textbf{Observability:} The observability matrix \( O \) is:
+    \[
+    O = \begin{bmatrix}
+    C \\
+    C A_d \\
+    C A_d^2 \\
+    \vdots \\
+    C A_d^{n-1}
+    \end{bmatrix}
+    \]
+    \( O \) must have full rank for the system to be observable. This depends on the measurement matrix \( C \).
+
+    \item \textbf{Stability:} Stability is determined by the eigenvalues of \( A_d \). If all eigenvalues lie inside the unit circle (\( |\lambda| < 1 \)), the system is stable.
+\end{itemize}
+
+\subsubsection*{5. Summary}
+\begin{itemize}
+    \item The system is linearized about the nominal operating point \( x_0, u_0 \), and discrete-time matrices \( A_d, B_d \) are derived for \( \Delta T = 0.1 \).
+    \item Observability depends on the rank of \( O \), and stability is determined by the eigenvalues of \( A_d \).
+\end{itemize}
+
+\subsection*{Exercise 3}
+
+
+\subsubsection*{1. Objective}
+The goal is to simulate the linearized discrete-time (DT) dynamics and measurement models near the linearization point, compare them with the full nonlinear system dynamics, and validate the accuracy of the linearized model. This is done by:
+\begin{itemize}
+    \item Simulating both the linearized DT model and the nonlinear model starting from a perturbed nominal initial condition.
+    \item Assuming no process noise, measurement noise, or control input perturbations.
+    \item Comparing the resulting states and measurements from both models through plots.
+\end{itemize}
+
+\subsubsection*{2. Simulation Setup}
+The nominal state \( x_{\text{nom}}(t) \) is defined as a function of time for both the UGV and UAV:
+\[
+x_{\text{nom}}(t) = 
+\begin{bmatrix}
+\xi_{g,\text{nom}}(t) \\ \eta_{g,\text{nom}}(t) \\ \theta_{g,\text{nom}}(t) \\ 
+\xi_{a,\text{nom}}(t) \\ \eta_{a,\text{nom}}(t) \\ \theta_{a,\text{nom}}(t)
+\end{bmatrix}
+\]
+A small initial perturbation is added to the nominal state:
+\[
+\delta x_0 = [0.1, 0.1, 0.05, 0.1, 0.1, 0.05]^T, \quad x_{\text{perturbed}}(0) = x_{\text{nom}}(0) + \delta x_0
+\]
+
+\subsubsection*{3. Nonlinear Dynamics Simulation}
+The nonlinear system is described by the following state equations:
+\[
+\dot{x} = f(x, u), \quad y = h(x)
+\]
+where:
+\[
+f(x, u) = 
+\begin{bmatrix}
+v_g \cos\theta_g \\ 
+v_g \sin\theta_g \\ 
+\frac{v_g}{L} \tan\phi_g \\ 
+v_a \cos\theta_a \\ 
+v_a \sin\theta_a \\ 
+\omega_a
+\end{bmatrix}, \quad
+h(x) = \text{(measurement model)}
+\]
+The nonlinear system is simulated using `ode45` in MATLAB with the perturbed initial condition \( x_{\text{perturbed}}(0) \).
+
+\subsubsection*{4. Linearized Dynamics Simulation}
+The discrete-time linearized system is given by:
+\[
+\delta x_{k+1} = F_k \delta x_k + G_k \delta u_k, \quad \delta y_k = C_k \delta x_k
+\]
+where:
+\[
+F_k = I + A_k \Delta T, \quad G_k = B_k \Delta T
+\]
+The Jacobian matrices \( A_k \) and \( B_k \) are computed as:
+\[
+A_k = \frac{\partial f(x, u)}{\partial x}, \quad B_k = \frac{\partial f(x, u)}{\partial u}
+\]
+The linearized model is simulated for the same perturbed initial condition \( \delta x_0 \) and compared against the nonlinear simulation.
+
+\subsubsection*{5. Measurement Comparison}
+The measurement model is defined for range and bearing:
+\[
+C_k = 
+\begin{bmatrix}
+\frac{x_5 - x_2}{\sqrt{(x_5 - x_2)^2 + (x_4 - x_1)^2}} & \frac{-(x_4 - x_1)}{\sqrt{(x_5 - x_2)^2 + (x_4 - x_1)^2}} & 0 & \frac{-(x_5 - x_2)}{\sqrt{(x_5 - x_2)^2 + (x_4 - x_1)^2}} & \frac{x_4 - x_1}{\sqrt{(x_5 - x_2)^2 + (x_4 - x_1)^2}} & 0 \\
+0 & 0 & 0 & 0 & 0 & 1
+\end{bmatrix}
+\]
+Measurements \( \delta y_k \) from the linearized model are compared to the nonlinear measurements \( y_{\text{nonlinear}}(t) \) computed directly from the nonlinear simulation.
+
+% \subsection*{6. Results and Validation}
+% The states and measurements from the nonlinear model are compared with the linearized model. Key observations include:
+% \begin{itemize}
+%     \item The linearized DT model closely tracks the nonlinear system for small perturbations.
+%     \item Deviations occur over time due to higher-order nonlinearities, especially for large perturbations.
+%     \item The following plots summarize the results:
+%     \begin{itemize}
+%         \item \textbf{State Comparisons:} UGV states (\( \xi_g, \eta_g, \theta_g \)) and UAV states (\( \xi_a, \eta_a, \theta_a \)).
+%         \item \textbf{Measurement Comparisons:} Range and bearing measurements.
+%     \end{itemize}
+% \end{itemize}
+
+
