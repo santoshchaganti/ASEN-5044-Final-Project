@@ -1,176 +1,153 @@
-% Initialize Parameters
-clear; close all; clc;
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{xcolor}
 
-% Time and system parameters
-dt = 0.1;              % Sampling time
-time = 0:dt:10;        % Simulation time
-num_steps = length(time);
-vg = 2;                % UGV velocity [m/s]
-phi_g = -pi/18;        % UGV steering angle [rad]
-va = 12;               % UAV velocity [m/s]
-wa = pi/25;            % UAV angular velocity [rad/s]
-L = 0.5;               % UGV wheelbase [m]
+\begin{document}
 
-% State and measurement dimensions
-n = 6;  % State dimension (xi_g, eta_g, theta_g, xi_a, eta_a, theta_a)
-p = 5;  % Measurement dimension
+\title{Linearized Kalman Filter (LKF) with NEES and NIS Performance Evaluation}
+\author{}
+\date{}
+\maketitle
 
-% Covariance Matrices
-Q_actual = diag([0.05, 0.05, 0.005, 0.05, 0.05, 0.005]); % True process noise
-Q_KF = diag([0.1, 0.1, 0.01, 0.1, 0.1, 0.01]);          % KF guessed process noise
-R_actual = diag([0.1, 0.01, 0.1, 0.1, 0.1]);            % True measurement noise
-R_KF = R_actual;                                        % KF uses accurate R
+\section*{Introduction}
 
-% Initial covariance and perturbation
-P_0 = diag([0.5, 0.5, 0.05, 0.5, 0.5, 0.05]);
-perturbation = [0.1; 0.1; 0.05; 0.1; 0.1; 0.05];
+This document outlines the implementation of a Linearized Kalman Filter (LKF) for a UAV-UGV cooperative localization system. The LKF uses a linearized model of the system's dynamics and measurement functions to estimate the state of the system in the presence of noise. The performance of the LKF is evaluated using two statistical tests:
+\begin{itemize}
+    \item \textbf{NEES (Normalized Estimation Error Squared):} Evaluates the accuracy of the state estimate.
+    \item \textbf{NIS (Normalized Innovation Squared):} Evaluates the consistency of the filter by analyzing the measurement residuals.
+\end{itemize}
 
-% Define Nominal State Trajectory
-xi_g_nom = @(t) (1 / (2 * tan(pi / 18))) * (20 * tan(pi / 18) + 1 - cos(4 * tan(phi_g) * t));
-eta_g_nom = @(t) (1 / (2 * tan(pi / 18))) * sin(4 * tan(phi_g) * t);
-theta_g_nom = @(t) pi / 2 + 4 * tan(phi_g) * t;
-xi_a_nom = @(t) (1 / pi) * (300 - 60 * t - 300 * cos(pi / 25 * t));
-eta_a_nom = @(t) (300 / pi) * sin(pi / 25 * t);
-theta_a_nom = @(t) wrapToPi(-pi / 2 + pi / 25 * t);
+\section*{System Description}
 
-nominal_state = @(t) [xi_g_nom(t); eta_g_nom(t); theta_g_nom(t); ...
-                      xi_a_nom(t); eta_a_nom(t); theta_a_nom(t)];
+The dynamics of the system are nonlinear and are defined by the following state transition function:
+\[
+f(\mathbf{x}) = \begin{bmatrix}
+v_g \cos(\theta_g) \\
+v_g \sin(\theta_g) \\
+\frac{v_g}{L} \tan(\phi_g) \\
+v_a \cos(\theta_a) \\
+v_a \sin(\theta_a) \\
+\omega_a
+\end{bmatrix},
+\]
+where $v_g$ and $\phi_g$ are the velocity and steering angle of the UGV, and $v_a$ and $\omega_a$ are the velocity and angular rate of the UAV.
 
-% Nonlinear dynamics
-f = @(x) [vg * cos(x(3));
-          vg * sin(x(3));
-          (vg / L) * tan(phi_g);
-          va * cos(x(6));
-          va * sin(x(6));
-          wa];
+The measurement function is given by:
+\[
+h(\mathbf{x}) = \begin{bmatrix}
+\text{wrapToPi}\left(\tan^{-1}\left(\frac{\eta_a - \eta_g}{\xi_a - \xi_g}\right) - \theta_g\right) \\
+\text{wrapToPi}\left(\tan^{-1}\left(\frac{\eta_g - \eta_a}{\xi_g - \xi_a}\right) - \theta_a\right) \\
+\sqrt{(\xi_a - \xi_g)^2 + (\eta_a - \eta_g)^2} \\
+\xi_a \\
+\eta_a
+\end{bmatrix}.
+\]
+\section*{Measurement Model}
 
-% Nonlinear measurement model
-h = @(x) [wrapToPi(atan2(x(5) - x(2), x(4) - x(1)) - x(3));  % Relative bearing UAV from UGV
-          wrapToPi(atan2(x(2) - x(5), x(1) - x(4)) - x(6));  % Relative bearing UGV from UAV
-          sqrt((x(5) - x(2))^2 + (x(4) - x(1))^2);           % Range between UAV and UGV
-          x(4);                                              % UAV x-position (GPS)
-          x(5)];                                             % UAV y-position (GPS)
+\subsection*{Nonlinear Measurement Function (\( h(\mathbf{x}) \))}
 
-% Jacobians
-A = @(x) [0, 0, -vg*sin(x(3)), 0, 0, 0;
-          0, 0,  vg*cos(x(3)), 0, 0, 0;
-          0, 0,  0,             0, 0, 0;
-          0, 0,  0,             0, 0, -va*sin(x(6));
-          0, 0,  0,             0, 0,  va*cos(x(6));
-          0, 0,  0,             0, 0,  0];
+The nonlinear measurement function is given by:
+\[
+h(\mathbf{x}) =
+\begin{bmatrix}
+\text{wrapToPi}\left(\tan^{-1}\left(\frac{\eta_a - \eta_g}{\xi_a - \xi_g}\right) - \theta_g\right) \\
+\text{wrapToPi}\left(\tan^{-1}\left(\frac{\eta_g - \eta_a}{\xi_g - \xi_a}\right) - \theta_a\right) \\
+\sqrt{(\xi_a - \xi_g)^2 + (\eta_a - \eta_g)^2} \\
+\xi_a \\
+\eta_a
+\end{bmatrix},
+\]
+where:
+\begin{itemize}
+    \item \( (\xi_g, \eta_g) \): Position of the UGV in 2D space.
+    \item \( (\xi_a, \eta_a) \): Position of the UAV in 2D space.
+    \item \( \theta_g, \theta_a \): Heading angles of the UGV and UAV, respectively.
+    \item \text{wrapToPi}: A function that ensures the angles remain within the range \([- \pi, \pi]\).
+\end{itemize}
 
-H = @(x) [-(x(5) - x(2)) / ((x(5) - x(2))^2 + (x(4) - x(1))^2), ...
-           (x(4) - x(1)) / ((x(5) - x(2))^2 + (x(4) - x(1))^2), -1, ...
-           (x(5) - x(2)) / ((x(5) - x(2))^2 + (x(4) - x(1))^2), ...
-          -(x(4) - x(1)) / ((x(5) - x(2))^2 + (x(4) - x(1))^2), 0;
-           (x(4) - x(1)) / ((x(5) - x(2))^2 + (x(4) - x(1))^2), ...
-           (x(5) - x(2)) / ((x(5) - x(2))^2 + (x(4) - x(1))^2), 0, ...
-          -(x(4) - x(1)) / ((x(5) - x(2))^2 + (x(4) - x(1))^2), ...
-          -(x(5) - x(2)) / ((x(5) - x(2))^2 + (x(4) - x(1))^2), -1;
-          (x(4) - x(1)) / sqrt((x(5) - x(2))^2 + (x(4) - x(1))^2), ...
-          (x(5) - x(2)) / sqrt((x(5) - x(2))^2 + (x(4) - x(1))^2), 0, ...
-          -(x(4) - x(1)) / sqrt((x(5) - x(2))^2 + (x(4) - x(1))^2), ...
-          -(x(5) - x(2)) / sqrt((x(5) - x(2))^2 + (x(4) - x(1))^2), 0;
-           0, 0, 0, 1, 0, 0;
-           0, 0, 0, 0, 1, 0];
+\subsection*{Jacobian of the Measurement Function (\( H(\mathbf{x}) \))}
 
-function [truth_history, measurements] = simulate_trajectory(time, Q_actual, R_actual, nominal_state, f, h, perturbation)
+The Jacobian of the measurement function is computed as:
+\[
+H(\mathbf{x}) =
+\begin{bmatrix}
+-\frac{\eta_a - \eta_g}{(\xi_a - \xi_g)^2 + (\eta_a - \eta_g)^2} & \frac{\xi_a - \xi_g}{(\xi_a - \xi_g)^2 + (\eta_a - \eta_g)^2} & -1 & \frac{\eta_a - \eta_g}{(\xi_a - \xi_g)^2 + (\eta_a - \eta_g)^2} & -\frac{\xi_a - \xi_g}{(\xi_a - \xi_g)^2 + (\eta_a - \eta_g)^2} & 0 \\
+\frac{\eta_a - \eta_g}{(\xi_a - \xi_g)^2 + (\eta_a - \eta_g)^2} & \frac{\xi_a - \xi_g}{(\xi_a - \xi_g)^2 + (\eta_a - \eta_g)^2} & 0 & -\frac{\eta_a - \eta_g}{(\xi_a - \xi_g)^2 + (\eta_a - \eta_g)^2} & -\frac{\xi_a - \xi_g}{(\xi_a - \xi_g)^2 + (\eta_a - \eta_g)^2} & -1 \\
+\frac{\xi_a - \xi_g}{\sqrt{(\xi_a - \xi_g)^2 + (\eta_a - \eta_g)^2}} & \frac{\eta_a - \eta_g}{\sqrt{(\xi_a - \xi_g)^2 + (\eta_a - \eta_g)^2}} & 0 & -\frac{\xi_a - \xi_g}{\sqrt{(\xi_a - \xi_g)^2 + (\eta_a - \eta_g)^2}} & -\frac{\eta_a - \eta_g}{\sqrt{(\xi_a - \xi_g)^2 + (\eta_a - \eta_g)^2}} & 0 \\
+0 & 0 & 0 & 1 & 0 & 0 \\
+0 & 0 & 0 & 0 & 1 & 0
+\end{bmatrix}.
+\]
+\section*{Linearized Kalman Filter (LKF)}
 
-    % Dimensions
-    n = size(Q_actual, 1); % State dimension
-    p = size(R_actual, 1); % Measurement dimension
-    num_steps = length(time); % Number of time steps
+The LKF approximates the nonlinear system by linearizing it about the current state estimate. The filter proceeds as follows:
 
-    % Initialize storage
-    truth_history = zeros(n, num_steps);
-    measurements = zeros(p, num_steps);
+\subsection*{Prediction Step}
 
-    % Initial true state
-    truth = nominal_state(0) + perturbation;
-    truth_history(:, 1) = truth;
+\begin{align}
+\delta \hat{\mathbf{x}}_{k+1}^- &= \mathbf{F}_k \delta \hat{\mathbf{x}}_k^+ + \mathbf{G}_k \delta \mathbf{u}_k, \\
+\mathbf{P}_{k+1}^- &= \mathbf{F}_k \mathbf{P}_k^+ \mathbf{F}_k^\top + \mathbf{Q}_k,
+\end{align}
+where $\mathbf{F}_k$ is the Jacobian of the dynamics $f(\mathbf{x})$, $\mathbf{G}_k$ maps the control inputs, and $\mathbf{Q}_k$ is the process noise covariance.
 
-    % Simulate trajectory
-    for k = 1:num_steps - 1
-        % Ground Truth Propagation
-        process_noise = mvnrnd(zeros(n, 1), Q_actual)';
-        truth = truth + (time(k + 1) - time(k)) * f(truth) + process_noise;
-        truth_history(:, k + 1) = truth;
+\subsection*{Measurement Update Step}
 
-        % Generate Noisy Measurement
-        measurement_noise = mvnrnd(zeros(p, 1), R_actual)';
-        measurements(:, k + 1) = h(truth) + measurement_noise;
-    end
-end
+\begin{align}
+\delta \hat{\mathbf{x}}_{k+1}^+ &= \delta \hat{\mathbf{x}}_{k+1}^- + \mathbf{K}_{k+1} \left(\delta \mathbf{y}_{k+1} - \mathbf{H}_{k+1} \delta \hat{\mathbf{x}}_{k+1}^-\right), \\
+\mathbf{P}_{k+1}^+ &= \left(\mathbf{I} - \mathbf{K}_{k+1} \mathbf{H}_{k+1}\right) \mathbf{P}_{k+1}^-,
+\end{align}
+where $\mathbf{K}_{k+1}$ is the Kalman gain:
+\[
+\mathbf{K}_{k+1} = \mathbf{P}_{k+1}^- \mathbf{H}_{k+1}^\top \left(\mathbf{H}_{k+1} \mathbf{P}_{k+1}^- \mathbf{H}_{k+1}^\top + \mathbf{R}_k\right)^{-1}.
+\]
 
-% Main Script
-[truth_history, measurements] = simulate_trajectory(time, Q_actual, R_actual, nominal_state, f, h, perturbation);
+\subsection*{NEES and NIS Calculations}
 
-% Initialize NEES and NIS
-N = 400; % Number of Monte Carlo runs
-nees = zeros(num_steps - 1, N);
-nis = zeros(num_steps - 1, N);
+\begin{itemize}
+    \item The NEES (Normalized Estimation Error Squared) is given by:
+    \[
+    \epsilon_k = (\mathbf{x}_k - \hat{\mathbf{x}}_k)^\top \mathbf{P}_k^{-1} (\mathbf{x}_k - \hat{\mathbf{x}}_k),
+    \]
+    where $\mathbf{x}_k$ is the true state and $\hat{\mathbf{x}}_k$ is the estimated state.
+    \item The NIS (Normalized Innovation Squared) is given by:
+    \[
+    \nu_k = \mathbf{v}_k^\top \mathbf{S}_k^{-1} \mathbf{v}_k,
+    \]
+    where $\mathbf{v}_k$ is the innovation (measurement residual), and $\mathbf{S}_k$ is the innovation covariance.
+\end{itemize}
 
-% Monte Carlo Loop
-for j = 1:N
-    % Initialize the state estimate and covariance
-    x_hat = nominal_state(0) + perturbation; % Initial state estimate
-    P = P_0; % Initial covariance
+\section*{Simulation and Results}
 
-    % Loop through all time steps
-    for k = 1:num_steps - 1
-        % Ground Truth at time step k
-        truth = truth_history(:, k);
+The system trajectory is simulated using the nonlinear dynamics and the true noise covariances. Noisy measurements are generated at each time step, and the LKF is used to estimate the states.
 
-        % Measurement at time step k
-        measurement = measurements(:, k);
+\subsection*{NEES and NIS Tests}
 
-        % --- Prediction Step ---
-        F = eye(n) + dt * A(x_hat); % Linearized state transition matrix
-        x_hat = x_hat + dt * f(x_hat); % Predicted state estimate
-        P = F * P * F' + Q_KF; % Predicted covariance
+The filter's performance is evaluated using 400 Monte Carlo simulations. Confidence bounds for NEES and NIS are calculated using the chi-squared distribution:
+\begin{align}
+\text{NEES bounds: } &\left[\chi^2_{\alpha/2, n}, \chi^2_{1-\alpha/2, n}\right] / N, \\
+\text{NIS bounds: } &\left[\chi^2_{\alpha/2, p}, \chi^2_{1-\alpha/2, p}\right] / N.
+\end{align}
 
-        % --- Measurement Update ---
-        H_k = H(x_hat); % Linearized measurement matrix
-        innovation = measurement - h(x_hat); % Innovation (measurement residual)
-        S = H_k * P * H_k' + R_KF; % Innovation covariance
-        K = P * H_k' / S; % Kalman gain
-        x_hat = x_hat + K * innovation; % Updated state estimate
-        P = (eye(n) - K * H_k) * P; % Updated covariance
+\section*{Results}
 
-        % --- NEES and NIS Calculation ---
-        state_error = truth - x_hat; % State estimation error
-        nees(k, j) = state_error' / P * state_error; % NEES statistic
-        nis(k, j) = innovation' / S * innovation; % NIS statistic
-    end
-end
+\begin{itemize}
+    \item \textbf{NEES:} The NEES evaluates whether the state estimation error is consistent with the filter's covariance.
+    \item \textbf{NIS:} The NIS evaluates whether the innovation (residual) is consistent with the measurement noise covariance.
+\end{itemize}
 
-% Average NEES and NIS
-mean_nees = mean(nees, 2);
-mean_nis = mean(nis, 2);
-
-% Confidence Bounds
-alpha = 0.05;
-nees_bounds = [chi2inv(alpha / 2, n), chi2inv(1 - alpha / 2, n)] / N;
-nis_bounds = [chi2inv(alpha / 2, p), chi2inv(1 - alpha / 2, p)] / N;
-
-% Plot NEES
-figure;
-plot(time(1:num_steps - 1), mean_nees, 'b', 'LineWidth', 1.5);
-hold on;
-yline(nees_bounds(1), 'r--', 'Lower Bound');
-yline(nees_bounds(2), 'r--', 'Upper Bound');
-title('NEES Test');
-xlabel('Time [s]');
-ylabel('NEES');
-grid on;
-
-% Plot NIS
-figure;
-plot(time(1:num_steps - 1), mean_nis, 'b', 'LineWidth', 1.5);
-hold on;
-yline(nis_bounds(1), 'r--', 'Lower Bound');
-yline(nis_bounds(2), 'r--', 'Upper Bound');
-title('NIS Test');
-xlabel('Time [s]');
-ylabel('NIS');
-grid on;
+Both metrics are plotted against their respective confidence bounds, showing the filter's consistency.
+\begin{figure}
+    \centering
+    \includegraphics[width=0.5\linewidth]{NIs.png}
+    \caption{NIS mine}
+    \label{fig:enter-label}
+\end{figure}
+\begin{figure}
+    \centering
+    \includegraphics[width=0.5\linewidth]{nees.png}
+    \caption{NEES mine}
+    \label{fig:enter-label}
+\end{figure}
+\end{document}
